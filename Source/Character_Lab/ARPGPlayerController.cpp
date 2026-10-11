@@ -19,8 +19,6 @@
 #include "ARPGInventoryWidget.h"
 #include "ARPGEquipmentPresentation.h"
 #include "Components/SkeletalMeshComponent.h"
-#include "Brushes/SlateImageBrush.h"
-#include "Misc/Paths.h"
 #include "UObject/UnrealType.h"
 #include "ARPGInventoryDrag.h"
 #include "ARPGDroppedItem.h"
@@ -57,6 +55,7 @@ void AARPGPlayerController::SetupInputComponent()
 #if !UE_BUILD_SHIPPING
     InputComponent->BindKey(EKeys::H, IE_Pressed, this, &ThisClass::DebugDamage);
     InputComponent->BindKey(EKeys::J, IE_Pressed, this, &ThisClass::DebugRestore);
+    InputComponent->BindKey(EKeys::K, IE_Pressed, this, &ThisClass::AddInventoryTestItems);
 #endif
 }
 
@@ -209,6 +208,29 @@ void AARPGPlayerController::DebugDamage()
 void AARPGPlayerController::DebugRestore()
 {
     if (AARPGPlayerState* State = GetPlayerState<AARPGPlayerState>()) State->DebugRestore();
+}
+void AARPGPlayerController::AddInventoryTestItems()
+{
+#if !UE_BUILD_SHIPPING
+    // TEMP: test supply shortcut. Remove when regular loot sources cover inventory testing.
+    AARPGPlayerState* State = GetPlayerState<AARPGPlayerState>();
+    if (!State || !HasAuthority()) return;
+    int32 Added = 0;
+    int32 Rejected = 0;
+    for (const TSoftObjectPtr<UARPGItemDefinition>& Reference : InventoryTestDefinitions)
+    {
+        UARPGItemDefinition* Definition = Reference.LoadSynchronous();
+        FGuid Id;
+        FText Error;
+        if (Definition && State->GetInventory()->TryAdd(Definition, Id, Error)) ++Added;
+        else
+        {
+            ++Rejected;
+            if (!Definition) UE_LOG(LogTemp, Error, TEXT("Missing inventory test definition: %s"), *Reference.ToString());
+        }
+    }
+    ShowInventoryMessage(FText::Format(NSLOCTEXT("Inventory", "TestSupply", "Testföremål: {0} tillagda, {1} kunde inte läggas till. [K] ger en ny omgång."), FText::AsNumber(Added), FText::AsNumber(Rejected)));
+#endif
 }
 void AARPGPlayerController::StopMovementForUI()
 {
@@ -367,23 +389,14 @@ void AARPGPlayerController::InitializeLootLabels()
     Component->InitWidget();
     UUserWidget* ExistingLabel = Component->GetUserWidgetObject();
     if (!ExistingLabel || Cast<UChestLootWidget>(ExistingLabel)) return;
-    UChestLootWidget* Clickable = CreateWidget<UChestLootWidget>(this);
-    if (ChestItemDefinition) Clickable->Definition = ChestItemDefinition;
-    else
+    UARPGItemDefinition* Definition = ChestItemDefinition.LoadSynchronous();
+    if (!Definition)
     {
-        // TEMP: bootstrap the existing chest until an ItemDefinition Data Asset is authored.
-        // Uses the current character's known-working mesh rather than a second mesh asset path.
-        RuntimeChestDefinition = NewObject<UARPGItemDefinition>(this);
-        RuntimeChestDefinition->DisplayName = NSLOCTEXT("Inventory", "Chest", "Chest Armor");
-        RuntimeChestDefinition->Size = FIntPoint(2, 3);
-        RuntimeChestDefinition->EquipmentSlot = EARPGEquipmentSlot::Chest;
-        RuntimeChestDefinition->Icon = FSlateVectorImageBrush(FPaths::ProjectContentDir() / TEXT("UI/Icons/Chest.svg"), FVector2D(96.f, 128.f));
-        APawn* ControlledPawn = GetPawn();
-        FObjectProperty* MeshProperty = ControlledPawn ? FindFProperty<FObjectProperty>(ControlledPawn->GetClass(), TEXT("ChestArmorMesh")) : nullptr;
-        USkeletalMeshComponent* Visual = MeshProperty ? Cast<USkeletalMeshComponent>(MeshProperty->GetObjectPropertyValue_InContainer(ControlledPawn)) : nullptr;
-        if (Visual) RuntimeChestDefinition->EquippedMesh = Visual->GetSkeletalMeshAsset();
-        Clickable->Definition = RuntimeChestDefinition;
+        UE_LOG(LogTemp, Error, TEXT("Chest Data Asset missing: %s. Check ARPGPlayerController settings in DefaultGame.ini."), *ChestItemDefinition.ToString());
+        return;
     }
+    UChestLootWidget* Clickable = CreateWidget<UChestLootWidget>(this);
+    Clickable->Definition = Definition;
     Clickable->Item = Items[0];
     Clickable->Plate = Plates[0];
     if (Stems.Num() == 1) Clickable->Stem = Stems[0];

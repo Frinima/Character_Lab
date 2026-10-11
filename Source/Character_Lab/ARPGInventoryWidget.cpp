@@ -73,6 +73,12 @@ void UARPGInventoryWidget::NativeOnInitialized()
     Title->SetText(NSLOCTEXT("Inventory", "Title", "INVENTORY  [I]"));
     SmallText(Title);
     Row(Title);
+#if !UE_BUILD_SHIPPING
+    UTextBlock* TestHint = WidgetTree->ConstructWidget<UTextBlock>();
+    TestHint->SetText(NSLOCTEXT("Inventory", "TestItemsHint", "[K] Lägg till testföremål"));
+    SmallText(TestHint);
+    Row(TestHint);
+#endif
     UTextBlock* EquipmentTitle = WidgetTree->ConstructWidget<UTextBlock>();
     EquipmentTitle->SetText(NSLOCTEXT("Inventory", "EquipmentTitle", "Utrustad chest"));
     SmallText(EquipmentTitle);

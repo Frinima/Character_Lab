@@ -2,6 +2,26 @@
 
 Första etappen separerar upphämtning, förvaring och utrustning. Inventoryt är ett rutnät med 10 × 6 rutor. Varje föremålsdefinition anger ikon, namn, storlek och eventuell utrustningsplats. Den befintliga chesten använder en stiliserad rustningsikon och tar 2 × 3 rutor.
 
+## Sparade föremålsdefinitioner
+
+Samtliga definitioner är riktiga Data Assets under `/Game/Items/Definitions`. Ikonerna är importerade Texture2D-assets under `/Game/UI/ItemIcons`, med redigerbara SVG-original i `Content/UI/Icons`.
+
+| Data Asset | Föremål | Storlek | Utrustningsbart |
+| --- | --- | --- | --- |
+| DA_Chest | Chest Armor | 2 × 3 | Ja, chest |
+| DA_Gem | Ädelsten | 1 × 1 | Nej |
+| DA_Scroll | Skriftrulle | 1 × 2 | Nej |
+| DA_Ore | Malmstycke | 2 × 2 | Nej |
+| DA_Sword | Svärd | 1 × 3 | Nej, endast inventorytest ännu |
+
+Chesten laddas från en konfigurerad assetreferens i `Config/DefaultGame.ini`. Ingen tillfällig definition skapas vid spelstart. Saknad referens rapporteras som ett fel, utan hårdkodad reservdefinition. Asset Manager är konfigurerad att inkludera definitionerna och deras referenser vid paketering.
+
+Tryck K i ett Development-spel för att lägga till ett exemplar av de fyra testföremålen. Tryck flera gånger för att testa fullt inventory. Föremål som inte får plats läggs inte till. Detta är ett testverktyg, inte permanent startutrustning; inga nya föremål placeras automatiskt i banan. Testföremålen kan flyttas, släppas på marken och plockas upp med det vanliga flödet.
+
+Öppna en definition i Content Browser för att ändra namn, storlek, ikon eller utrustningsdata. Spara och starta om Play efter ändringen; en ändring av storlek mitt under en pågående session omplacerar inte befintliga instanser. Dataändringar kräver normalt inget C++-bygge. Listan för K och chestreferensen finns under ARPGPlayerController i DefaultGame.ini.
+
+`Tools/CreateItemAssets.py` är ett engångsverktyg för att skapa saknade assets och verifiera referenser. Det körs i Unreals Python-miljö och skriver inte över befintliga assets eller sparar någon bana. `Tools/RenderItemIcons.cjs` konverterar SVG-originalen till PNG för import. Spelet använder de sparade assetsen, inte dessa skript.
+
 ## Spelarflöde
 
 - I öppnar och stänger inventoryt. Det öppnas även efter upphämtning eller när ett fel behöver visas.
@@ -46,17 +66,19 @@ Användaren bygger. Spara och stäng Unreal Editor, generera om projektfiler vid
 10. Dra till utrustningsfältet och sedan tillbaka till rutnätet. Kontrollera både ikonen och karaktärens mesh. Knappbaserad utrustning ska fortfarande fungera.
 11. Dra ut i spelvyn och släpp. Kontrollera att endast en skylt visas bredvid spelaren och att ikonen försvinner. Plocka upp och upprepa, även direkt från utrustningsplatsen.
 12. Prova Escape under draget, släpp utanför spelfönstret och släpp på panelens text eller HUD. Inget föremål får försvinna eller hamna på marken. Kontrollera att vanliga världsklick fungerar efter avslutat eller avbrutet drag.
+13. Tryck K och kontrollera fyra olika ikoner med storlekarna ovan. Dra dem bredvid varandra, testa upptagna rutor och försök utrusta ett icke utrustningsbart föremål. Upprepa K tills vissa föremål inte får plats.
+14. Släpp till exempel ädelstenen och svärdet på marken. Kontrollera namnskyltar, upphämtning och att rätt ikon och storlek kommer tillbaka. Kontrollera även att chesten fortfarande går att utrusta med sin sparade meshreferens.
 
-Automationstestet `ARPG.Inventory.GridAndEquipment` använder föremål i storlekarna 1 × 1, 1 × 2 och 2 × 3. Det kontrollerar placering, fullt inventory, överlappning, ogiltiga storlekar, utrustning, avtagning, upptagen utrustningsplats och unika instans-ID:n. Testet körs av användaren efter bygge via Session Frontend. Banan innehåller fortfarande bara den befintliga chesten; de andra storlekarna är testdata, inte nya världsdrops.
+Automationstestet `ARPG.Inventory.GridAndEquipment` använder föremål i storlekarna 1 × 1, 1 × 2 och 2 × 3. Det kontrollerar placering, fullt inventory, överlappning, ogiltiga storlekar, utrustning, avtagning, upptagen utrustningsplats och unika instans-ID:n. Testet körs av användaren efter bygge via Session Frontend. Ytterligare spelbara testföremål läggs till med K.
 
 ## Avgränsningar och temporära delar
 
 - Inventoryt är för lokalt spel. Det är inte sparat till disk eller replikerat för multiplayer. Innehållet återställs vid en ny Play-session.
 - Rotation, stapling, automatiskt utrustningsbyte och fler utrustningsplatser återstår. Utrustningen påverkar ännu inte GAS-egenskaper.
-- TEMP: den befintliga chestens definition skapas i C++ när ingen Data Asset är tilldelad. Ersätt med en skapad ARPGItemDefinition och tilldela ChestItemDefinition på en konfigurerad controllerklass innan fler innehållstyper införs. Storlek, ikon, namn och mesh finns redan som redigerbara fält i definitionen.
+- TEMP: K ger en konfigurerad testomgång i Development. Ta bort testkommandot när ordinarie lootkällor täcker testbehoven. Föremålsdefinitionerna är inte längre tillfälliga C++-objekt.
 - TEMP: kopplingen till banans enda chest använder befintliga aktörstaggar. Kopplingen till karaktärens visuella chest-komponent använder Blueprint-fältet ChestArmorMesh. Ersätt med placerade pickup-aktörer med explicita definitioner och konfigurerade komponentreferenser när baninnehåll och karaktär migreras. Det generella inventoryt beror inte på dessa namn.
-- TEMP: SVG-ikonen är en stiliserad prototypikon, inte en render av den exakta chest-modellen. Den ligger i Content/UI/Icons, som är inkluderad för paketering. Ersätt med slutliga föremålsikoner via definitionernas Icon-fält.
+- TEMP: ikonerna är stiliserad prototypgrafik, inte renderingar av slutliga föremålsmodeller. Ersätt grafiken via definitionernas Icon-fält när den slutliga visuella stilen är bestämd.
 - TEMP: panelen byggs med UMG i C++, har prototypmått och är utformad för standardrutnätet. Flytta layout och stil till en Widget Blueprint vid UI-förfining. I och 1 använder nuvarande direkta tangentbindningar; flytta dessa till Enhanced Input tillsammans med övrig styrning.
 - TEMP: markdrop använder initiala placeringsvärden (150 cm åt sidan och åtta sökriktningar) samt en enkel native UMG-skylt. Gör placering och skyltstil innehållsstyrda vid nästa loot-förfining.
 
-Källkod och relevanta API-signaturer har granskats. Agenten har inte byggt projektet eller kört automationstester, rendering eller speltester för denna etapp.
+De fem Data Assets och deras Texture2D-referenser har skapats och laddats tillbaka med Unreals editorverktyg. Chestens meshreferens lästes från den befintliga karaktären. Kodändringen som laddar dessa assets och tillför K-kommandot har inte byggts eller speltestats av agenten. Användaren bygger och verifierar den senaste ändringen enligt checklistan.

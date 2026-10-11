@@ -10,7 +10,7 @@ class UARPGItemDefinition;
 class UARPGWorldDropTarget;
 class UARPGInventoryComponent;
 
-UCLASS()
+UCLASS(Config=Game)
 class CHARACTER_LAB_API AARPGPlayerController : public APlayerController
 {
     GENERATED_BODY()
@@ -44,12 +44,13 @@ protected:
     TSubclassOf<UARPGHUDWidget> HUDWidgetClass;
     UPROPERTY(EditDefaultsOnly, Category="ARPG|UI")
     TSubclassOf<UARPGInventoryWidget> InventoryWidgetClass;
-    UPROPERTY(EditDefaultsOnly, Category="ARPG|Items")
-    TObjectPtr<UARPGItemDefinition> ChestItemDefinition;
+    UPROPERTY(EditDefaultsOnly, Config, Category="ARPG|Items")
+    TSoftObjectPtr<UARPGItemDefinition> ChestItemDefinition;
+    UPROPERTY(EditDefaultsOnly, Config, Category="ARPG|Testing")
+    TArray<TSoftObjectPtr<UARPGItemDefinition>> InventoryTestDefinitions;
 private:
     UPROPERTY(Transient) TObjectPtr<UARPGWorldDropTarget> WorldDropTarget;
     UPROPERTY(Transient) TObjectPtr<UARPGInventoryWidget> InventoryWindow;
-    UPROPERTY(Transient) TObjectPtr<UARPGItemDefinition> RuntimeChestDefinition;
     TArray<TWeakObjectPtr<UChestLootWidget>> LootLabels;
     void ToggleInventory();
     void InitializeEquipmentPresentation();
@@ -58,6 +59,7 @@ private:
     void ActivatePrimaryAbility();
     void DebugDamage();
     void DebugRestore();
+    void AddInventoryTestItems();
     void InitializeLootLabels();
     TWeakObjectPtr<UChestLootWidget> PendingPickup;
     float PickupElapsed = 0.f;
