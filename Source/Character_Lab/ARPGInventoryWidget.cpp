@@ -79,19 +79,29 @@ void UARPGInventoryWidget::NativeOnInitialized()
     SmallText(TestHint);
     Row(TestHint);
 #endif
-    UTextBlock* EquipmentTitle = WidgetTree->ConstructWidget<UTextBlock>();
-    EquipmentTitle->SetText(NSLOCTEXT("Inventory", "EquipmentTitle", "Utrustad chest"));
-    SmallText(EquipmentTitle);
-    Row(EquipmentTitle);
-    Equipment = WidgetTree->ConstructWidget<UHorizontalBox>();
-    EquipmentTarget = WidgetTree->ConstructWidget<UBorder>();
-    EquipmentTarget->SetBrushColor(FLinearColor(0.06f, 0.09f, 0.12f, 1.f));
-    EquipmentTarget->SetPadding(FMargin(6.f));
-    EquipmentTarget->SetContent(Equipment);
-    USizeBox* EquipmentBox = WidgetTree->ConstructWidget<USizeBox>();
-    EquipmentBox->SetMinDesiredHeight(76.f);
-    EquipmentBox->SetContent(EquipmentTarget);
-    Row(EquipmentBox);
+    UHorizontalBox* EquipmentSlots = WidgetTree->ConstructWidget<UHorizontalBox>();
+    auto AddEquipmentSlot = [this, EquipmentSlots, SmallText](const FText& Label, TObjectPtr<UHorizontalBox>& Contents, TObjectPtr<UBorder>& Target)
+    {
+        UVerticalBox* Column = WidgetTree->ConstructWidget<UVerticalBox>();
+        UTextBlock* SlotTitle = WidgetTree->ConstructWidget<UTextBlock>();
+        SlotTitle->SetText(Label);
+        SmallText(SlotTitle);
+        Column->AddChildToVerticalBox(SlotTitle);
+        Contents = WidgetTree->ConstructWidget<UHorizontalBox>();
+        Target = WidgetTree->ConstructWidget<UBorder>();
+        Target->SetBrushColor(FLinearColor(0.06f, 0.09f, 0.12f, 1.f));
+        Target->SetPadding(FMargin(6.f));
+        Target->SetContent(Contents);
+        USizeBox* Box = WidgetTree->ConstructWidget<USizeBox>();
+        Box->SetWidthOverride(180.f);
+        Box->SetMinDesiredHeight(76.f);
+        Box->SetContent(Target);
+        Column->AddChildToVerticalBox(Box);
+        EquipmentSlots->AddChildToHorizontalBox(Column);
+    };
+    AddEquipmentSlot(NSLOCTEXT("Inventory", "ChestSlot", "Chest"), Equipment, EquipmentTarget);
+    AddEquipmentSlot(NSLOCTEXT("Inventory", "WeaponSlot", "Vapen"), WeaponEquipment, WeaponTarget);
+    Row(EquipmentSlots);
     GridBox = WidgetTree->ConstructWidget<USizeBox>();
     Grid = WidgetTree->ConstructWidget<UCanvasPanel>();
     GridBox->SetContent(Grid);
@@ -138,6 +148,7 @@ void UARPGInventoryWidget::Refresh()
     if (!Grid || !Equipment) return;
     Grid->ClearChildren();
     Equipment->ClearChildren();
+    WeaponEquipment->ClearChildren();
     if (!Source.IsValid())
     {
         SelectedId.Invalidate();
@@ -166,7 +177,8 @@ void UARPGInventoryWidget::Refresh()
             USizeBox* Box = WidgetTree->ConstructWidget<USizeBox>();
             Box->SetWidthOverride(48.f); Box->SetHeightOverride(64.f);
             Box->SetContent(Tile);
-            Equipment->AddChildToHorizontalBox(Box);
+            UHorizontalBox* SlotContents = Entry.Definition->EquipmentSlot == EARPGEquipmentSlot::Weapon ? WeaponEquipment.Get() : Equipment.Get();
+            SlotContents->AddChildToHorizontalBox(Box);
         }
         else
         {
@@ -176,11 +188,12 @@ void UARPGInventoryWidget::Refresh()
             ItemSlot->SetZOrder(1);
         }
     }
-    if (Equipment->GetChildrenCount() == 0)
+    for (UHorizontalBox* SlotContents : { Equipment.Get(), WeaponEquipment.Get() })
     {
+        if (SlotContents->GetChildrenCount() != 0) continue;
         UTextBlock* Empty = WidgetTree->ConstructWidget<UTextBlock>();
         Empty->SetText(NSLOCTEXT("Inventory", "EmptySlot", "Tom"));
-        Equipment->AddChildToHorizontalBox(Empty);
+        SlotContents->AddChildToHorizontalBox(Empty);
     }
     const FARPGInventoryItem* Selected = Source->FindItem(SelectedId);
     Details->SetText(Selected ? FText::Format(NSLOCTEXT("Inventory", "Selected", "{0} — {1} × {2} rutor"), Selected->Definition->DisplayName, FText::AsNumber(Selected->Definition->Size.X), FText::AsNumber(Selected->Definition->Size.Y)) : NSLOCTEXT("Inventory", "SelectHelp", "Välj en ikon. Klicka i en tom ruta för att flytta den."));
@@ -236,8 +249,11 @@ bool UARPGInventoryWidget::NativeOnDrop(const FGeometry& Geometry, const FDragDr
     FText Error;
     if (EquipmentTarget->GetCachedGeometry().IsUnderLocation(Event.GetScreenSpacePosition()))
     {
-        const FARPGInventoryItem* Entry = Source->FindItem(Drag->ItemId);
-        if (!Entry || !Entry->bEquipped) Source->TryEquip(Drag->ItemId, Error);
+        Source->TryEquipToSlot(Drag->ItemId, EARPGEquipmentSlot::Chest, Error);
+    }
+    else if (WeaponTarget->GetCachedGeometry().IsUnderLocation(Event.GetScreenSpacePosition()))
+    {
+        Source->TryEquipToSlot(Drag->ItemId, EARPGEquipmentSlot::Weapon, Error);
     }
     else if (Grid->GetCachedGeometry().IsUnderLocation(Event.GetScreenSpacePosition()))
     {

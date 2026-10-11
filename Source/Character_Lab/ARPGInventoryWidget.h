@@ -53,6 +53,8 @@ private:
     UPROPERTY(Transient) TObjectPtr<UCanvasPanel> Grid;
     UPROPERTY(Transient) TObjectPtr<UHorizontalBox> Equipment;
     UPROPERTY(Transient) TObjectPtr<UBorder> EquipmentTarget;
+    UPROPERTY(Transient) TObjectPtr<UHorizontalBox> WeaponEquipment;
+    UPROPERTY(Transient) TObjectPtr<UBorder> WeaponTarget;
     UPROPERTY(Transient) TObjectPtr<UTextBlock> Details;
     UPROPERTY(Transient) TObjectPtr<UTextBlock> Status;
     UPROPERTY(Transient) TObjectPtr<UTextBlock> ActionLabel;

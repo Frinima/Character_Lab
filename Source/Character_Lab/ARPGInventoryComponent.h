@@ -31,6 +31,7 @@ public:
     bool CanPlace(FIntPoint Size, FIntPoint Position, FGuid Ignore = FGuid()) const;
     bool TryAdd(UARPGItemDefinition* Definition, FGuid& OutId, FText& OutError);
     bool TryEquip(FGuid Id, FText& OutError);
+    bool TryEquipToSlot(FGuid Id, EARPGEquipmentSlot Slot, FText& OutError);
     bool TryUnequip(FGuid Id, FText& OutError);
     bool TryMove(FGuid Id, FIntPoint Position, FText& OutError);
     bool TryStoreAt(FGuid Id, FIntPoint Position, FText& OutError);

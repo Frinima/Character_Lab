@@ -5,9 +5,10 @@
 #include "ARPGItemDefinition.generated.h"
 
 class USkeletalMesh;
+class UStaticMesh;
 
 UENUM(BlueprintType)
-enum class EARPGEquipmentSlot : uint8 { None, Chest };
+enum class EARPGEquipmentSlot : uint8 { None, Chest, Weapon };
 
 // Shared immutable definition; position, identity and equipped state belong to an item instance.
 UCLASS(BlueprintType)
@@ -20,4 +21,7 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Item") FSlateBrush Icon;
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Equipment") EARPGEquipmentSlot EquipmentSlot = EARPGEquipmentSlot::None;
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Equipment") TObjectPtr<USkeletalMesh> EquippedMesh;
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Equipment|Weapon") TObjectPtr<UStaticMesh> WeaponMesh;
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Equipment|Weapon") FName AttachmentSocket;
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Equipment|Weapon") FTransform AttachmentTransform = FTransform::Identity;
 };

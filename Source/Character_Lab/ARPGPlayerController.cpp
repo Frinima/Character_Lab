@@ -141,7 +141,6 @@ void AARPGPlayerController::InitializeEquipmentPresentation()
     if (!Visual)
     {
         UE_LOG(LogTemp, Error, TEXT("Inventory: character has no ChestArmorMesh equipment visual."));
-        return;
     }
     UARPGEquipmentPresentation* Presenter = ControlledPawn->FindComponentByClass<UARPGEquipmentPresentation>();
     if (!Presenter)
@@ -150,7 +149,8 @@ void AARPGPlayerController::InitializeEquipmentPresentation()
         ControlledPawn->AddInstanceComponent(Presenter);
         Presenter->RegisterComponent();
     }
-    Presenter->Bind(State->GetInventory(), Visual);
+    ACharacter* ControlledCharacter = Cast<ACharacter>(ControlledPawn);
+    Presenter->Bind(State->GetInventory(), Visual, ControlledCharacter ? ControlledCharacter->GetMesh() : nullptr);
 }
 
 void AARPGPlayerController::ToggleInventory()

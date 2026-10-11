@@ -5,6 +5,7 @@
 #include "Engine/World.h"
 #include "GameFramework/Actor.h"
 #include "Engine/SkeletalMesh.h"
+#include "Engine/StaticMesh.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FARPGInventoryGridTest, "ARPG.Inventory.GridAndEquipment", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FARPGInventoryGridTest::RunTest(const FString& Parameters)
@@ -65,6 +66,54 @@ bool FARPGInventoryGridTest::RunTest(const FString& Parameters)
     TestTrue(TEXT("Recollect world item"), Inventory->TryImport(Dropped, Error));
     TestTrue(TEXT("Recollected item preserves identity"), Inventory->FindItem(SecondChestId) != nullptr);
     TestFalse(TEXT("Duplicate world pickup rejected"), Inventory->TryImport(Dropped, Error));
+    return true;
+}
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FARPGWeaponEquipmentTest, "ARPG.Inventory.WeaponEquipment", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+bool FARPGWeaponEquipmentTest::RunTest(const FString& Parameters)
+{
+    UWorld* World = UWorld::CreateWorld(EWorldType::Game, false);
+    if (!TestNotNull(TEXT("Test world"), World)) return false;
+    ON_SCOPE_EXIT { World->DestroyWorld(false); };
+    AActor* Owner = World->SpawnActor<AActor>();
+    if (!TestNotNull(TEXT("Inventory owner"), Owner)) return false;
+    UARPGInventoryComponent* Inventory = NewObject<UARPGInventoryComponent>(Owner);
+    UARPGItemDefinition* Chest = NewObject<UARPGItemDefinition>();
+    Chest->EquipmentSlot = EARPGEquipmentSlot::Chest;
+    Chest->EquippedMesh = NewObject<USkeletalMesh>();
+    UARPGItemDefinition* Sword = NewObject<UARPGItemDefinition>();
+    Sword->Size = FIntPoint(1, 3);
+    Sword->EquipmentSlot = EARPGEquipmentSlot::Weapon;
+    FGuid ChestId, SwordId, OtherSwordId;
+    FText Error;
+    TestTrue(TEXT("Add chest"), Inventory->TryAdd(Chest, ChestId, Error));
+    TestTrue(TEXT("Add sword"), Inventory->TryAdd(Sword, SwordId, Error));
+    TestTrue(TEXT("Add second sword"), Inventory->TryAdd(Sword, OtherSwordId, Error));
+    TestFalse(TEXT("Weapon without mesh cannot equip"), Inventory->TryEquip(SwordId, Error));
+    Sword->WeaponMesh = NewObject<UStaticMesh>();
+    TestFalse(TEXT("Weapon without attachment cannot equip"), Inventory->TryEquip(SwordId, Error));
+    Sword->AttachmentSocket = TEXT("HandGrip_R");
+    TestFalse(TEXT("Sword cannot enter chest slot"), Inventory->TryEquipToSlot(SwordId, EARPGEquipmentSlot::Chest, Error));
+    TestFalse(TEXT("Chest cannot enter weapon slot"), Inventory->TryEquipToSlot(ChestId, EARPGEquipmentSlot::Weapon, Error));
+    TestTrue(TEXT("Equip chest"), Inventory->TryEquipToSlot(ChestId, EARPGEquipmentSlot::Chest, Error));
+    TestTrue(TEXT("Equip sword alongside chest"), Inventory->TryEquipToSlot(SwordId, EARPGEquipmentSlot::Weapon, Error));
+    TestNotNull(TEXT("Chest remains equipped"), Inventory->FindEquipped(EARPGEquipmentSlot::Chest));
+    TestTrue(TEXT("Drop back onto own slot is harmless"), Inventory->TryEquipToSlot(SwordId, EARPGEquipmentSlot::Weapon, Error));
+    TestFalse(TEXT("Equipped sword cannot enter chest slot"), Inventory->TryEquipToSlot(SwordId, EARPGEquipmentSlot::Chest, Error));
+    TestFalse(TEXT("Occupied weapon slot rejects another sword"), Inventory->TryEquip(OtherSwordId, Error));
+    TestTrue(TEXT("Unequip sword"), Inventory->TryUnequip(SwordId, Error));
+    TestNull(TEXT("Weapon slot cleared"), Inventory->FindEquipped(EARPGEquipmentSlot::Weapon));
+    TestTrue(TEXT("Equip sword again"), Inventory->TryEquip(SwordId, Error));
+    const FARPGInventoryItem* Entry = Inventory->FindItem(SwordId);
+    if (!TestNotNull(TEXT("Sword instance preserved"), Entry)) return false;
+    const FARPGInventoryItem Dropped = *Entry;
+    TestTrue(TEXT("Drop equipped sword"), Inventory->TryRemove(SwordId, Error));
+    TestNull(TEXT("Drop clears weapon slot"), Inventory->FindEquipped(EARPGEquipmentSlot::Weapon));
+    TestNotNull(TEXT("Dropping sword keeps chest equipped"), Inventory->FindEquipped(EARPGEquipmentSlot::Chest));
+    TestTrue(TEXT("Pick sword up again"), Inventory->TryImport(Dropped, Error));
+    Entry = Inventory->FindItem(SwordId);
+    if (!TestNotNull(TEXT("Pickup preserves ID"), Entry)) return false;
+    TestFalse(TEXT("Pickup stores sword, does not auto-equip"), Entry->bEquipped);
+    TestEqual(TEXT("No duplicate items"), Inventory->GetItems().Num(), 3);
     return true;
 }
 #endif

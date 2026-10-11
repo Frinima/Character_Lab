@@ -56,13 +56,28 @@ bool UARPGInventoryComponent::TryEquip(FGuid Id, FText& OutError)
 {
     if (!CanModify(OutError)) return false;
     FARPGInventoryItem* Entry = Items.FindByPredicate([Id](const FARPGInventoryItem& Item) { return Item.Id == Id; });
-    if (!Entry || Entry->bEquipped || !Entry->Definition || Entry->Definition->EquipmentSlot == EARPGEquipmentSlot::None || !Entry->Definition->EquippedMesh)
+    if (!Entry || Entry->bEquipped || !Entry->Definition)
+    { OutError = NSLOCTEXT("Inventory", "NotEquipment", "Föremålet kan inte utrustas."); return false; }
+    const UARPGItemDefinition* Definition = Entry->Definition;
+    const bool bValidVisual =
+        (Definition->EquipmentSlot == EARPGEquipmentSlot::Chest && Definition->EquippedMesh) ||
+        (Definition->EquipmentSlot == EARPGEquipmentSlot::Weapon && Definition->WeaponMesh && !Definition->AttachmentSocket.IsNone());
+    if (!bValidVisual)
     { OutError = NSLOCTEXT("Inventory", "NotEquipment", "Föremålet kan inte utrustas."); return false; }
     if (FindEquipped(Entry->Definition->EquipmentSlot))
     { OutError = NSLOCTEXT("Inventory", "SlotOccupied", "Ta av nuvarande utrustning först."); return false; }
     Entry->bEquipped = true;
     OnChanged.Broadcast();
     return true;
+}
+bool UARPGInventoryComponent::TryEquipToSlot(FGuid Id, EARPGEquipmentSlot Slot, FText& OutError)
+{
+    if (!CanModify(OutError)) return false;
+    const FARPGInventoryItem* Entry = FindItem(Id);
+    if (!Entry || !Entry->Definition || Slot == EARPGEquipmentSlot::None || Entry->Definition->EquipmentSlot != Slot)
+    { OutError = NSLOCTEXT("Inventory", "WrongEquipmentSlot", "Föremålet passar inte på den utrustningsplatsen."); return false; }
+    if (Entry->bEquipped) return true; // Dropping back onto its own slot is a no-op.
+    return TryEquip(Id, OutError);
 }
 bool UARPGInventoryComponent::TryUnequip(FGuid Id, FText& OutError)
 {

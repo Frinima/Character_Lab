@@ -12,7 +12,7 @@ Samtliga definitioner är riktiga Data Assets under `/Game/Items/Definitions`. I
 | DA_Gem | Ädelsten | 1 × 1 | Nej |
 | DA_Scroll | Skriftrulle | 1 × 2 | Nej |
 | DA_Ore | Malmstycke | 2 × 2 | Nej |
-| DA_Sword | Svärd | 1 × 3 | Nej, endast inventorytest ännu |
+| DA_Sword | Svärd | 1 × 3 | Vapen, efter engångskonfigureringen nedan |
 
 Chesten laddas från en konfigurerad assetreferens i `Config/DefaultGame.ini`. Ingen tillfällig definition skapas vid spelstart. Saknad referens rapporteras som ett fel, utan hårdkodad reservdefinition. Asset Manager är konfigurerad att inkludera definitionerna och deras referenser vid paketering.
 
@@ -35,7 +35,7 @@ Knapp 1 använder inte längre Blueprintens gamla direktutrustning eller markdro
 ### Drag and drop
 
 - Dra ikonen mellan rutorna. Den ruta du grep i hålls under pekaren; hela föremålet måste få plats.
-- Dra chesten till fältet Utrustad chest för att utrusta den. Dra tillbaka till en ledig plats i rutnätet för att ta av den.
+- Dra chesten till Chest eller svärdet till Vapen. Båda kan vara utrustade samtidigt. Fel sorts föremål avvisas, och en upptagen plats kräver att den befintliga utrustningen tas av först. Dra tillbaka till lediga rutor för att ta av föremålet.
 - Dra utanför inventorypanelen och släpp över spelvyn för att lägga föremålet på marken bredvid karaktären, inte vid en avlägsen musposition. Detta fungerar även direkt från utrustningsplatsen.
 - Ett markdrop visas med en klickbar namnskylt. Upphämtning använder samma avståndsregel som tidigare och bevarar föremålets ID.
 - Ogiltig placering, fullt inventory, avbrutet drag eller släpp utanför spelfönstret lämnar föremålet kvar. Släpp över annan UI, exempelvis HUD, är inte en markdrop-yta.
@@ -54,9 +54,33 @@ UMG DragDropOperation används för draget. Modellen ändras först när släppe
 
 Användaren bygger. Spara och stäng Unreal Editor, generera om projektfiler vid behov och bygg Character_LabEditor med Development Editor och Win64. Öppna sedan ARPG-banan.
 
+### Engångskonfigurering av svärdet efter bygge
+
+Efter första bygget med vapenstödet och omstart av editorn, kör följande i Output Logs vanliga Cmd-fält, utanför Play:
+
+```text
+py "E:/Projekt/Unreal/Arpg/Character_Lab/Tools/ConfigureSword.py"
+```
+
+Skriptet sparar DA_Sword med EquipmentSlot Weapon, WeaponMesh SM_Sword_Prototype, AttachmentSocket HandGrip_R och identitetstransform. Det ändrar ingen bana. Kontrollera meddelandet `SWORD_SETUP_COMPLETE`. `SWORD_SETUP_PENDING` betyder att editorn fortfarande använder den äldre C++-versionen. Skriptet körs inte automatiskt vid spelstart.
+
+Modellen och materialen ligger under `/Game/Weapons`. Socketen HandGrip_R finns redan på karaktärens rigg. Vapnet använder en StaticMeshComponent fäst vid denna socket, utan kollision eller påverkan på navigation. Placering och rotation kan justeras via AttachmentTransform i Data Asset; själva karaktärsriggen ändras inte. Ingen stridsanimation eller ändrad fingerpose ingår i detta steg.
+
+### Test av vapenplatsen
+
+1. Starta Play och tryck K. Dra svärdets ikon till Vapen; rutorna ska frigöras och modellen synas i höger hand.
+2. Utrusta chesten samtidigt. Gå runt och kontrollera att svärdet följer handen och att chesten är kvar.
+3. Prova svärd på Chest, chest på Vapen och ett andra svärd på en upptagen vapenplats. Föremålen ska ligga kvar och ett fel visas.
+4. Dra svärdet tillbaka till tre lediga rutor. Handen ska bli tom. Testa även knappen för utrustning och avtagning.
+5. Dra ett utrustat svärd ut i spelvyn. Handen ska bli tom, en namnskylt visas och chesten ska inte påverkas. Plocka upp svärdet och utrusta igen; ingen duplicering får ske.
+
+Automationstestet `ARPG.Inventory.WeaponEquipment` täcker separata platser, ogiltiga vapenreferenser, upptagen plats, avtagning och återupphämtning. Användaren kör det efter bygge.
+
+### Regressionstest av inventoryt
+
 1. Tryck I. Ett tomt rutnät ska visas till höger. Klick på panel, rutor och knappar ska inte förflytta karaktären.
 2. Stäng inventoryt. Klicka på chestens skylt från längre än tre meter. Karaktären ska gå fram, skylten försvinna och inventoryt öppnas med en ikon som upptar 2 × 3 rutor. Chesten ska inte synas på kroppen ännu.
-3. Välj ikonen och utrusta. Chesten ska synas på kroppen, ikonen ska finnas under Utrustad chest och rutorna i väskan bli lediga.
+3. Välj ikonen och utrusta. Chesten ska synas på kroppen, ikonen ska finnas under Chest och rutorna i väskan bli lediga.
 4. Välj den utrustade ikonen och ta av. Chesten ska försvinna från kroppen och återkomma i rutnätet utan att dupliceras.
 5. Flytta ikonen till en tom ruta. Prova sedan placering för nära högerkanten eller nederkanten: flytten ska avvisas och den gamla positionen bevaras.
 6. Upprepa utrusta och ta av flera gånger. Antalet föremål ska vara oförändrat. Stäng och öppna inventoryt; innehållet ska finnas kvar under samma spelsession.
@@ -78,7 +102,8 @@ Automationstestet `ARPG.Inventory.GridAndEquipment` använder föremål i storle
 - TEMP: K ger en konfigurerad testomgång i Development. Ta bort testkommandot när ordinarie lootkällor täcker testbehoven. Föremålsdefinitionerna är inte längre tillfälliga C++-objekt.
 - TEMP: kopplingen till banans enda chest använder befintliga aktörstaggar. Kopplingen till karaktärens visuella chest-komponent använder Blueprint-fältet ChestArmorMesh. Ersätt med placerade pickup-aktörer med explicita definitioner och konfigurerade komponentreferenser när baninnehåll och karaktär migreras. Det generella inventoryt beror inte på dessa namn.
 - TEMP: ikonerna är stiliserad prototypgrafik, inte renderingar av slutliga föremålsmodeller. Ersätt grafiken via definitionernas Icon-fält när den slutliga visuella stilen är bestämd.
+- TEMP: SM_Sword_Prototype är enkel testgrafik med redigerbar OBJ-källa i Content/Weapons/Source. Ersätt WeaponMesh i DA_Sword med slutlig svärdsmodell och anpassa grepp/animation när vapenutseendet bestäms. Modellens pivot ligger mitt i greppet; klingan pekar längs lokal +Z.
 - TEMP: panelen byggs med UMG i C++, har prototypmått och är utformad för standardrutnätet. Flytta layout och stil till en Widget Blueprint vid UI-förfining. I och 1 använder nuvarande direkta tangentbindningar; flytta dessa till Enhanced Input tillsammans med övrig styrning.
 - TEMP: markdrop använder initiala placeringsvärden (150 cm åt sidan och åtta sökriktningar) samt en enkel native UMG-skylt. Gör placering och skyltstil innehållsstyrda vid nästa loot-förfining.
 
-De fem Data Assets och deras Texture2D-referenser har skapats och laddats tillbaka med Unreals editorverktyg. Chestens meshreferens lästes från den befintliga karaktären. Kodändringen som laddar dessa assets och tillför K-kommandot har inte byggts eller speltestats av agenten. Användaren bygger och verifierar den senaste ändringen enligt checklistan.
+De fem Data Assets och deras Texture2D-referenser har skapats med Unreals editorverktyg och tidigare inventoryflöde har testats av användaren. Svärdets testmodell och material är importerade; HandGrip_R har lästs från karaktärens faktiska rigg. Den nya vapenkoden och automationstestet är inte byggda eller körda av agenten. DA_Sword behöver engångskonfigureras efter användarens bygge, innan speltestet ovan.
